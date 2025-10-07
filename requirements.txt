@@ -14,7 +14,8 @@ python-dotenv==1.0.0
 gunicorn>=22.0.0
 gevent==23.9.1
 reportlab==4.2.0
-fitz
+pymupdf==1.22.5
+
 
 
 
