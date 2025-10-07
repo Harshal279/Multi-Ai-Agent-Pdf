@@ -19,7 +19,7 @@ class PDFRAGAgent:
         self.model = "llama-3.1-8b-instant"
         
         # Initialize embedding model
-        self.embedder = SentenceTransformer('all-MiniLM-L6-v2')
+        self.embedder = SentenceTransformer('paraphrase-MiniLM-L3-v2')
         
         # FAISS index and metadata storage
         self.index_file = 'rag_data/faiss_index.bin'
@@ -50,7 +50,9 @@ class PDFRAGAgent:
                 logger.info(f"Loaded existing index with {self.index.ntotal} documents")
             else:
                 # Create new index (384 dimensions for all-MiniLM-L6-v2)
-                self.index = faiss.IndexFlatL2(384)
+                quantizer = faiss.IndexFlatL2(384)
+                self.index = faiss.IndexIVFFlat(quantizer, 384, 8)  # 8 clusters
+                self.index.nprobe = 2
                 self.metadata = []
                 self.documents = []
                 logger.info("Created new FAISS index")
@@ -89,7 +91,7 @@ class PDFRAGAgent:
                     current_chunk = ""
                     
                     for sentence in sentences:
-                        if len(current_chunk + sentence) < 1000:  # Max chunk size
+                        if len(current_chunk + sentence) < 500:  # Max chunk size
                             current_chunk += sentence + ". "
                         else:
                             if current_chunk.strip():
@@ -129,7 +131,7 @@ class PDFRAGAgent:
             
             # Generate embeddings
             texts = [chunk['text'] for chunk in chunks]
-            embeddings = self.embedder.encode(texts)
+            embeddings = self.embedder.encode(texts, batch_size=16)
             
             # Add to FAISS index
             self.index.add(embeddings.astype('float32'))
@@ -157,7 +159,7 @@ class PDFRAGAgent:
         
         # Create sample PDFs if they don't exist
         self._create_sample_pdfs()
-        
+        pdf_files = os.listdir(sample_pdfs_dir)[:2]
         # Ingest all sample PDFs
         for filename in os.listdir(sample_pdfs_dir):
             if filename.endswith('.pdf'):
@@ -327,3 +329,4 @@ Please provide a comprehensive answer based on the available information."""
                 'sources': [],
                 'agent': 'pdf_rag'
             }
+
